@@ -7,13 +7,20 @@ String hello = "Hola mundo";
 void Task1( void *pvParameters)
 {
   const TickType_t xDelay200ms = pdMS_TO_TICKS (200); 
+  TickType_t xLastWakeTime; 
+  /*variable to save the current tick count, it has to be initialized to the 
+   *current tick count before it is used for the first time,then with the  
+   *function vTaskDelayUntil is updated atomatically
+   */
+   xLastWakeTime = xTaskGetTickCount();
+ 
   //Converts time in ms to the same time in system ticks
   while(1)
   {
     digitalWrite(LED, !digitalRead(LED)); //Blink led 
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
-    vTaskDelay(xDelay200ms);
+    vTaskDelayUntil(&xLastWakeTime, xDelay200ms);
   }
   
 }
@@ -21,14 +28,15 @@ void Task1( void *pvParameters)
 void Task2( void *pvParameters)
 {
   const TickType_t xDelay1s = pdMS_TO_TICKS (1000);
+  TickType_t xLastWakeTime; 
+  xLastWakeTime = xTaskGetTickCount();
   while(1)
   {
     Serial.println(hello);
-    vTaskDelay(xDelay1s);
+    vTaskDelayUntil(&xLastWakeTime, xDelay1s);
   }
    
 }
-
 
 void setup() {
   pinMode(LED, OUTPUT);   //Set pin as output
