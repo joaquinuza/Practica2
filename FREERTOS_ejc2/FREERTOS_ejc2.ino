@@ -1,7 +1,8 @@
 #include <MPU9250_asukiaaa.h> //Library to interface with sensor
 MPU9250_asukiaaa motionSensor;
 #define LED 32
-String hello = "Hola mundo";
+
+TaskHandle_t TaskHandle_3;
 
 struct Accelerometer{
   float ax;
@@ -10,6 +11,8 @@ struct Accelerometer{
   float aSqrt; 
 };
 
+QueueHandle_t SensorQueueS;
+
 void motionSensorInit(void){
   Wire.begin(21, 22); //default i2c pins of esp32 are pin 21 and 22
   motionSensor.setWire(&Wire);
@@ -17,6 +20,63 @@ void motionSensorInit(void){
 }
 
 void Task1( void *pvParameters)
+{
+  struct Accelerometer AccelerometerR;  //Struct to store the read values from i2c sensor
+  const TickType_t xDelay100ms = pdMS_TO_TICKS (100); 
+  TickType_t xLastWakeTime; 
+  /*variable to save the current tick count, it has to be initialized to the 
+   *current tick count before it is used for the first time,then with the  
+   *function vTaskDelayUntil is updated atomatically
+   */   
+   motionSensorInit();
+   xLastWakeTime = xTaskGetTickCount();
+ 
+  //Converts time in ms to the same time in system ticks
+  while(1)
+  {
+    motionSensor.accelUpdate();
+    AccelerometerR.ax =  motionSensor.accelX(); 
+    AccelerometerR.ay =  motionSensor.accelY(); 
+    AccelerometerR.az =  motionSensor.accelZ(); 
+    AccelerometerR.aSqrt = motionSensor.accelSqrt();
+    xQueueOverwrite (SensorQueueS , (void *) &AccelerometerR);
+    /*A version of xQueueSendToBack() that will write to the queue even if the queue 
+     * is full, overwriting data that is already held in the queue.
+     */
+    vTaskDelayUntil(&xLastWakeTime, xDelay100ms);
+    /* Delay for a period. A call to vTaskDelay() is used which places
+       the task into the Blocked state until the delay period has expired.*/
+  }
+  
+}
+
+void Task2( void *pvParameters)
+{
+  struct Accelerometer AccelerometerW;  //Struct to store the read values from task1
+  BaseType_t xStatus; //To receive data from queue
+  const TickType_t xDelay1s = pdMS_TO_TICKS (1000); 
+  TickType_t xLastWakeTime; 
+  /*variable to save the current tick count, it has to be initialized to the 
+   *current tick count before it is used for the first time,then with the  
+   *function vTaskDelayUntil is updated atomatically
+   */
+   xLastWakeTime = xTaskGetTickCount();
+ 
+  //Converts time in ms to the same time in system ticks
+  while(1)
+  {
+    xStatus = xQueueReceive( SensorQueueS, &AccelerometerW, 0);
+    digitalWrite(LED, HIGH); //Blink led 
+    //vTaskResume(TaskHandle_3);  //To start a "countdown"
+    Serial.println(AccelerometerW.aSqrt);
+    /* Delay for a period. A call to vTaskDelay() is used which places
+       the task into the Blocked state until the delay period has expired.*/
+    
+    vTaskDelayUntil(&xLastWakeTime, xDelay1s);
+  }
+}
+
+void Task3( void *pvParameters)
 {
   const TickType_t xDelay200ms = pdMS_TO_TICKS (200); 
   TickType_t xLastWakeTime; 
@@ -29,38 +89,11 @@ void Task1( void *pvParameters)
   //Converts time in ms to the same time in system ticks
   while(1)
   {
-    digitalWrite(LED, !digitalRead(LED)); //Blink led 
+    digitalWrite(LED, LOW); //Switch off LED
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
     vTaskDelayUntil(&xLastWakeTime, xDelay200ms);
-  }
-  
-}
-
-void Task2( void *pvParameters)
-{
-  struct Accelerometer AccelerometerR;  //Struct to store the read values from i2c sensor
-  const TickType_t xDelay100ms = pdMS_TO_TICKS (100); 
-  TickType_t xLastWakeTime; 
-  /*variable to save the current tick count, it has to be initialized to the 
-   *current tick count before it is used for the first time,then with the  
-   *function vTaskDelayUntil is updated atomatically
-   */
-   motionSensorInit();
-   xLastWakeTime = xTaskGetTickCount();
- 
-  //Converts time in ms to the same time in system ticks
-  while(1)
-  {
-    motionSensor.accelUpdate();
-    AccelerometerR.ax =  motionSensor.accelX(); 
-    AccelerometerR.ay =  motionSensor.accelY(); 
-    AccelerometerR.az =  motionSensor.accelZ(); 
-    AccelerometerR.aSqrt = motionSensor.accelSqrt(); 
-    Serial.println(AccelerometerR.aSqrt);
-    /* Delay for a period. A call to vTaskDelay() is used which places
-       the task into the Blocked state until the delay period has expired.*/
-    vTaskDelayUntil(&xLastWakeTime, xDelay100ms);
+    //vTaskSuspend(TaskHandle_3);
   }
   
 }
@@ -70,7 +103,9 @@ void Task2( void *pvParameters)
 void setup() {
   Serial.begin(9600);
   pinMode(LED, OUTPUT);   //Set pin as output
-  xTaskCreate( Task1, /* Pointer to the function that implements the task. */
+  SensorQueueS = xQueueCreate(1, sizeof( struct Accelerometer));
+  if(  SensorQueueS != NULL){   //Create tasks only if the queue is created succesfully
+      xTaskCreate( Task1, /* Pointer to the function that implements the task. */
                "Task 1",/* Text name for the task. This is to facilitate
                            debugging only. */
                1000, /* Stack depth - small microcontrollers will use much
@@ -78,11 +113,10 @@ void setup() {
                NULL, /* This example does not use the task parameter. */
                1, /* This task will run at priority 1. */
                NULL ); /* This example does not use the task handle. */
-  xTaskCreate(Task2, "Task 2", 1000, NULL, 1, NULL);
-
+      xTaskCreate(Task2, "Task 2", 1000, NULL, 1, NULL);
+      xTaskCreate(Task3, "Task 3", 1000, NULL, 1, &TaskHandle_3); 
+  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
 }
