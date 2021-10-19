@@ -41,10 +41,6 @@ void Task1( void *pvParameters)
     AccelerometerR.az =  motionSensor.accelZ(); 
     AccelerometerR.aSqrt = motionSensor.accelSqrt();
     xQueueSendToBack(SensorQueueS, (void *) &AccelerometerR, 0); 
-    //xQueueOverwrite (SensorQueueS , (void *) &AccelerometerR);
-    /*A version of xQueueSendToBack() that will write to the queue even if the queue 
-     * is full, overwriting data that is already held in the queue.
-     */
     vTaskDelayUntil(&xLastWakeTime, xDelay100ms);
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
@@ -67,19 +63,16 @@ void Task2( void *pvParameters)
   //Converts time in ms to the same time in system ticks
   while(1)
   {
+    digitalWrite(LED, HIGH); //Switch on LED
     if( uxQueueSpacesAvailable != 0)
     {
       Serial.println("---- START ----");
       while((xQueueReceive(SensorQueueS, (void *) &AccelerometerW, 0) == pdPASS)){
-        //xStatus = xQueueReceive( SensorQueueS, &AccelerometerW, 0);
         Serial.println(AccelerometerW.aSqrt);
       }
     }
     Serial.println("---- END ----");
-    //xStatus = xQueueReceive( SensorQueueS, &AccelerometerW, 0);
-    //digitalWrite(LED, HIGH); //Blink led 
-    //vTaskResume(TaskHandle_3);  //To start a "countdown"
-    //Serial.println(AccelerometerW.aSqrt);
+    vTaskResume( TaskHandle_3 );
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
     
@@ -100,11 +93,11 @@ void Task3( void *pvParameters)
   //Converts time in ms to the same time in system ticks
   while(1)
   {
+    vTaskDelay(xDelay200ms);
     digitalWrite(LED, LOW); //Switch off LED
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
-    vTaskDelayUntil(&xLastWakeTime, xDelay200ms);
-    //vTaskSuspend(TaskHandle_3);
+    vTaskSuspend(TaskHandle_3);
   }
   
 }
