@@ -12,6 +12,7 @@ struct Accelerometer{
 };
 
 QueueHandle_t SensorQueueS;
+//Queue to send data between tasks
 
 void motionSensorInit(void){
   Wire.begin(21, 22); //default i2c pins of esp32 are pin 21 and 22
@@ -39,7 +40,8 @@ void Task1( void *pvParameters)
     AccelerometerR.ay =  motionSensor.accelY(); 
     AccelerometerR.az =  motionSensor.accelZ(); 
     AccelerometerR.aSqrt = motionSensor.accelSqrt();
-    xQueueOverwrite (SensorQueueS , (void *) &AccelerometerR);
+    xQueueSendToBack(SensorQueueS, (void *) &AccelerometerR, 0); 
+    //xQueueOverwrite (SensorQueueS , (void *) &AccelerometerR);
     /*A version of xQueueSendToBack() that will write to the queue even if the queue 
      * is full, overwriting data that is already held in the queue.
      */
@@ -65,10 +67,19 @@ void Task2( void *pvParameters)
   //Converts time in ms to the same time in system ticks
   while(1)
   {
-    xStatus = xQueueReceive( SensorQueueS, &AccelerometerW, 0);
-    digitalWrite(LED, HIGH); //Blink led 
+    if( uxQueueSpacesAvailable != 0)
+    {
+      Serial.println("---- START ----");
+      while((xQueueReceive(SensorQueueS, (void *) &AccelerometerW, 0) == pdPASS)){
+        //xStatus = xQueueReceive( SensorQueueS, &AccelerometerW, 0);
+        Serial.println(AccelerometerW.aSqrt);
+      }
+    }
+    Serial.println("---- END ----");
+    //xStatus = xQueueReceive( SensorQueueS, &AccelerometerW, 0);
+    //digitalWrite(LED, HIGH); //Blink led 
     //vTaskResume(TaskHandle_3);  //To start a "countdown"
-    Serial.println(AccelerometerW.aSqrt);
+    //Serial.println(AccelerometerW.aSqrt);
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
     
@@ -103,7 +114,7 @@ void Task3( void *pvParameters)
 void setup() {
   Serial.begin(9600);
   pinMode(LED, OUTPUT);   //Set pin as output
-  SensorQueueS = xQueueCreate(1, sizeof( struct Accelerometer));
+  SensorQueueS = xQueueCreate(10, sizeof( struct Accelerometer));
   if(  SensorQueueS != NULL){   //Create tasks only if the queue is created succesfully
       xTaskCreate( Task1, /* Pointer to the function that implements the task. */
                "Task 1",/* Text name for the task. This is to facilitate
