@@ -58,7 +58,7 @@ void Task2( void *pvParameters)
    *current tick count before it is used for the first time,then with the  
    *function vTaskDelayUntil is updated atomatically
    */
-   xLastWakeTime = xTaskGetTickCount();
+  xLastWakeTime = xTaskGetTickCount();
  
   //Converts time in ms to the same time in system ticks
   while(1)
