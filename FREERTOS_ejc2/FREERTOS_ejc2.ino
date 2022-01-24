@@ -66,12 +66,16 @@ void Task2( void *pvParameters)
     digitalWrite(LED, HIGH); //Switch on LED
     if( uxQueueSpacesAvailable != 0)
     {
-      Serial.println("---- START ----");
+      //Serial.println("---- START ----");
       while((xQueueReceive(SensorQueueS, (void *) &AccelerometerW, 0) == pdPASS)){
-        Serial.println(AccelerometerW.aSqrt);
+        Serial.print(AccelerometerW.ax);
+        Serial.print(",");
+        Serial.print(AccelerometerW.ay);
+        Serial.print(",");
+        Serial.println(AccelerometerW.az);
       }
     }
-    Serial.println("---- END ----");
+    //Serial.println("---- END ----");
     vTaskResume( TaskHandle_3 );
     /* Delay for a period. A call to vTaskDelay() is used which places
        the task into the Blocked state until the delay period has expired.*/
